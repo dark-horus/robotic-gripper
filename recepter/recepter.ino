@@ -1,6 +1,7 @@
 
 #include <PololuMaestro.h>
 #include <SoftwareSerial.h>
+#include <avr/wdt.h>
 
 #define bluetoothLed 6
 #define rbtRxPin 7
@@ -9,6 +10,7 @@
 #define txPin 10
 #define key 11
 #define state 12
+
 
 
 // Init serial lines
@@ -50,6 +52,7 @@ void setup() {
   pinMode(key, LOW);
   pinMode(bluetoothLed, OUTPUT);
   pinMode(state, INPUT);
+
 
 
   // Console
@@ -104,7 +107,7 @@ void loop() {
   // Manage buttons repetitions
   if (button1State || button2State)
     counter++;
-  if (counter > 50) {
+  if (counter > 25) {
     button1State = false;
     button2State = false;
     counter = 0;
@@ -145,47 +148,56 @@ void loop() {
 
 
       // Buttons
-      if ( y == 4) {
-        servoInt = y;
-        index = y * 7;
-        //int button_state_1 = message.substring(index + 2, index + 3).toInt();
-        if (message.substring(index + 2, index + 3).toInt() == 1 && button1State == false && counter == 0) {
 
-          // Check Bluetooth state
-          if (digitalRead(state) == 0) {
-            bluetoothConnectionLost();
-          } else {
-            // Send to robot initial position: 1410, 1360, 1504, 1965
-            if (debug)
-              Serial.println("Send robot in initial position");
-
-            maestro.setTarget(0, 5900);
-            delay(250);
-            maestro.setTarget(1, 6250);
-            delay(250);
-            maestro.setTarget(2, 6600);
-            delay(250);
-            maestro.setTarget(3, 7800);
-            delay(250);
-            bluetooth.flush();
-            button1State = true;
-            break;
-          }
-        }
+      if (message.substring(30, 31).toInt() == 1 && counter == 0) {
+        button1State = true;
+        Serial.println("button 1 pressed");
       }
-      if ( y == 5) {
-        servoInt = y;
-        index = (y - 1) * 7 + 4;
-        if (message.substring(index + 2, index + 3).toInt() == 1 && button2State == false && counter == 0) {
-
-          if (debug)
-            Serial.println("Button 2 pressed");
-
-          bluetooth.flush();
-          button2State = true;
-          break;
-        }
+      if (message.substring(34, 35).toInt() == 1 && counter == 0) {
+        button2State = true;
+        Serial.println("button 2 pressed");
       }
+
+      if (button1State && button2State) {
+        hardReset();
+        break;
+      } else if (button1State && !button2State) {
+        resetPosition();
+        break;
+      } else if (button2State && !button1State) {
+        break;
+      }
+
+
+      //      if ( y == 4 ) {
+      //        servoInt = y;
+      //        index = y * 7;
+      //        if (message.substring(index + 2, index + 3).toInt() == 1 && button1State == false && counter == 0) {
+      //          button1State = true;
+      //          //resetPosition();
+      //          break;
+      //        }
+      //      }
+      //      if ( y == 5) {
+      //        servoInt = y;
+      //        index = (y - 1) * 7 + 4;
+      //        if (message.substring(index + 2, index + 3).toInt() == 1 && button2State == false && counter == 0) {
+      //          button2State = true;
+      //          //hardReset();
+      //          break;
+      //        }
+      //      }
+      //
+      //      if (button1State && button2State) {
+      //        hardReset();
+      //        //break;
+      //      } else if (button1State && !button2State) {
+      //        resetPosition();
+      //        //break;
+      //      } else if (button2State && !button1State) {
+      //        Serial.println("Button 2 pressed");
+      //        //break;
+      //      }
 
 
       // Map command joystick->robot
@@ -264,10 +276,50 @@ void bluetoothConnect() {
 }
 
 
+void resetPosition() {
+
+
+  if (debug)
+    Serial.println("Reset position");
+
+  // Check Bluetooth state
+  if (digitalRead(state) == 0) {
+    bluetoothConnectionLost();
+  } else {
+    // Send to robot initial position: 1410, 1360, 1504, 1965
+    if (debug)
+      Serial.println("Send robot in initial position");
+
+    maestro.setTarget(0, 5900);
+    delay(250);
+    maestro.setTarget(1, 6250);
+    delay(250);
+    maestro.setTarget(2, 6600);
+    delay(250);
+    maestro.setTarget(3, 7800);
+    delay(250);
+    bluetooth.flush();
+  }
+}
+
+
 void bluetoothConnectionLost() {
 
   Serial.println("Bluetooth connection lost");
   bluetoothState = 0;
   digitalWrite(bluetoothLed, LOW);
   bluetoothConnect();
+}
+
+
+void hardReset()
+{
+
+  Serial.println("Hard reset");
+  delay(1000);
+
+  int resetPin = 5;
+  pinMode(resetPin, OUTPUT);
+
+  digitalWrite(resetPin, HIGH);
 }

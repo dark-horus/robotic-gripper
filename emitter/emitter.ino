@@ -100,25 +100,8 @@ void setup() {
   Serial.println("OK");
 
 
-  // Configure bluetooth dongle
-  // AT MODE ON
-  pinMode(key, HIGH);
-  bluetooth.begin(57600);
-  bluetooth.print("AT+POWE2\r\n");
-  delay(500);
-  bluetooth.print("AT+NAMEARDBT01\r\n");
-  delay(500);
-  bluetooth.print("AT+ROLE1\r\n");
-  delay(500);
-  bluetooth.print("AT+PIN964277\r\n");
-  delay(500);
-  bluetooth.print("AT+CONAD43639C79AA6\r\n");
-  //delay(2000); // wait for recepter
-  // AT MODE OFF
-  pinMode(key, LOW);
-
-
   // Bluetooth connection
+  bluetooth.begin(57600);
   digitalWrite(bluetoothLed, LOW);
   if (!debug)
     bluetoothConnect();
