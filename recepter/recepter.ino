@@ -37,6 +37,7 @@ bool button2State = false;
 
 int counter = 0;
 
+
 // Debug mode
 bool debug = false;
 
@@ -54,11 +55,11 @@ void setup() {
   pinMode(state, INPUT);
 
 
-
   // Console
   Serial.begin(9600);
   Serial.println("Gripper Robot - Recepter");
   Serial.println("------------------------\r\n");
+
 
   if (debug)
     Serial.println("DEBUG MODE");
@@ -73,21 +74,8 @@ void setup() {
   }
 
 
-  // Configure bluetooth dongle
-  // AT MODE ON
-  pinMode(key, HIGH);
-  bluetooth.begin(57600);
-  bluetooth.print("AT+POWE2\r\n");
-  delay(500);
-  bluetooth.print("AT+NAMEARDBT00\r\n");
-  delay(500);
-  bluetooth.print("AT+ROLE0\r\n");
-  delay(500);
-  bluetooth.print("AT+PIN964277\r\n");
-  delay(500);
-
-
   // Bluetooth connection
+  bluetooth.begin(57600);
   digitalWrite(bluetoothLed, LOW);
   if (!debug) {
     bluetoothConnect();
@@ -98,20 +86,28 @@ void setup() {
 
   // All is fine
   Serial.println("Status OK");
+
+
+  // Init robot position
+  resetPosition();
 }
 
 
 void loop() {
 
+  int commandInput = 0;
 
   // Manage buttons repetitions
   if (button1State || button2State)
     counter++;
-  if (counter > 25) {
+  if (counter > 10) {
     button1State = false;
     button2State = false;
     counter = 0;
   }
+
+
+  bluetooth.flush();
 
 
   // Check Bluetooth state
@@ -143,21 +139,19 @@ void loop() {
 
         // Format command
         command = message.substring(index + 2, index + 6);
-        commandInt = String(command).toInt();
+        commandInput = String(command).toInt();
       }
 
 
       // Buttons
-
       if (message.substring(30, 31).toInt() == 1 && counter == 0) {
         button1State = true;
-        Serial.println("button 1 pressed");
+        //Serial.println("button 1 pressed");
       }
       if (message.substring(34, 35).toInt() == 1 && counter == 0) {
         button2State = true;
-        Serial.println("button 2 pressed");
+        //Serial.println("button 2 pressed");
       }
-
       if (button1State && button2State) {
         hardReset();
         break;
@@ -169,49 +163,18 @@ void loop() {
       }
 
 
-      //      if ( y == 4 ) {
-      //        servoInt = y;
-      //        index = y * 7;
-      //        if (message.substring(index + 2, index + 3).toInt() == 1 && button1State == false && counter == 0) {
-      //          button1State = true;
-      //          //resetPosition();
-      //          break;
-      //        }
-      //      }
-      //      if ( y == 5) {
-      //        servoInt = y;
-      //        index = (y - 1) * 7 + 4;
-      //        if (message.substring(index + 2, index + 3).toInt() == 1 && button2State == false && counter == 0) {
-      //          button2State = true;
-      //          //hardReset();
-      //          break;
-      //        }
-      //      }
-      //
-      //      if (button1State && button2State) {
-      //        hardReset();
-      //        //break;
-      //      } else if (button1State && !button2State) {
-      //        resetPosition();
-      //        //break;
-      //      } else if (button2State && !button1State) {
-      //        Serial.println("Button 2 pressed");
-      //        //break;
-      //      }
-
-
       // Map command joystick->robot
       if (servoInt == 0) { //Turn
-        commandInt = map(commandInt, -512, 512, 1800, 10000);
+        commandInt = map(commandInput, -512, 512, 1800, 10000);
       }
       if (servoInt == 1) { // Top Down
-        commandInt = map(commandInt, -512, 512, 4500, 8000);
+        commandInt = map(commandInput, -512, 512, 4500, 8000);
       }
       if (servoInt == 2) { // Front Back
-        commandInt = map(commandInt, -512, 512, 6000, 9000);
+        commandInt = map(commandInput, -512, 512, 6000, 9000);
       }
       if (servoInt == 3) { // Clamp
-        commandInt = map(commandInt, -512, 512, 6600, 9000);
+        commandInt = map(commandInput, -512, 512, 6600, 9000);
       }
 
 
@@ -228,7 +191,9 @@ void loop() {
         if (debug) {
           Serial.print(servoInt);
           Serial.print(":");
-          Serial.println(commandInt);
+          Serial.print(commandInt);
+          Serial.print(":");
+          Serial.println(message);
         }
 
         // Check Bluetooth state
@@ -245,13 +210,13 @@ void loop() {
       }
     }
   }
-  //delay(25);
 }
 
 
 void bluetoothConnect() {
 
   Serial.print("Bluetooth connection ");
+
 
   // Wait for master
   while ( bluetoothState < 10 ) {
@@ -267,6 +232,7 @@ void bluetoothConnect() {
     }
     delay(100);
   }
+  
 
   // Connected
   bluetoothState = 0;
@@ -276,11 +242,20 @@ void bluetoothConnect() {
 }
 
 
+void bluetoothConnectionLost() {
+
+  Serial.println("Bluetooth connection lost");
+  bluetoothState = 0;
+  digitalWrite(bluetoothLed, LOW);
+  bluetoothConnect();
+}
+
+
 void resetPosition() {
 
+  Serial.println("Reset position");
+  delay(500);
 
-  if (debug)
-    Serial.println("Reset position");
 
   // Check Bluetooth state
   if (digitalRead(state) == 0) {
@@ -297,18 +272,9 @@ void resetPosition() {
     maestro.setTarget(2, 6600);
     delay(250);
     maestro.setTarget(3, 7800);
-    delay(250);
+    delay(1000);
     bluetooth.flush();
   }
-}
-
-
-void bluetoothConnectionLost() {
-
-  Serial.println("Bluetooth connection lost");
-  bluetoothState = 0;
-  digitalWrite(bluetoothLed, LOW);
-  bluetoothConnect();
 }
 
 
@@ -316,10 +282,11 @@ void hardReset()
 {
 
   Serial.println("Hard reset");
-  delay(1000);
+  delay(500);
 
+
+  // Enter reset mode
   int resetPin = 5;
   pinMode(resetPin, OUTPUT);
-
   digitalWrite(resetPin, HIGH);
 }
