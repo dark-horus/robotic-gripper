@@ -32,6 +32,13 @@ int jy2 = 0;
 int button1 = 0;
 int button2 = 0;
 
+int jx1_old = 0;
+int jy1_old = 0;
+int jx2_old = 0;
+int jy2_old = 0;
+int button1_old = 0;
+int button2_old = 0;
+
 int jx1_zero_point = 0;
 int jy1_zero_point = 0;
 int jx2_zero_point = 0;
@@ -115,6 +122,10 @@ void setup() {
 
 void loop() {
 
+  
+  send = false;
+
+
   // Read joysticks
   int jx1_new = analogRead(joystick_1_axis_x);
   int jy1_new = analogRead(joystick_1_axis_y);
@@ -134,6 +145,7 @@ void loop() {
   }
   jx1 = constrain(jx1, -512, 512);
 
+
   // Joystick Y1
   diff = jy1_zero_point - jy1_new;
   if (diff < 0 && abs(diff) > 10 ) {
@@ -143,6 +155,7 @@ void loop() {
     jy1 += abs(diff) / resolution;
   }
   jy1 = constrain(jy1, -512, 512);
+
 
   // Joystick X2
   diff = jx2_zero_point - jx2_new;
@@ -154,31 +167,49 @@ void loop() {
   }
   jx2 = constrain(jx2, -512, 512);
 
+
   // Joystick Y2
   int diff = jy2_zero_point - jy2_new;
   if (diff < 0 && abs(diff) > 10 ) {
-    jy2 -= abs(diff) / (resolution / 4);
+    jy2 -= abs(diff) / (resolution / 2);
   }
   if (diff > 0 && abs(diff) > 10 ) {
-    jy2 += abs(diff) / (resolution / 4);
+    jy2 += abs(diff) / (resolution / 2);
   }
   jy2 = constrain(jy2, -512, 512);
 
 
-  // Format command
-  sprintf(command, "0:%04d|1:%04d|2:%04d|3:%04d|4:%01d|5:%01d#", jy1, jx1, jx2, jy2, button1, button2);
+  // Send data?
+  if (jx1_old ^ jx1 || jy1_old ^ jy1 || jx2_old ^ jx2 || jy2_old ^ jy2 || button1_old ^ button1 || button2_old ^ button2)
+    send = true;
+
+  if (send) {
+
+    // Format command
+    sprintf(command, "0:%04d|1:%04d|2:%04d|3:%04d|4:%01d|5:%01d#", jy1, jx1, jx2, jy2, button1, button2);
 
 
-  // Check Bluetooth state
-  if (digitalRead(state) == 0 && !debug) {
-    bluetoothConnectionLost();
-  } else {
-    // Send by bluetooth
-    bluetooth.flush();
-    if (!debug) {
-      bluetooth.print(command);
+    // Check Bluetooth state
+    if (digitalRead(state) == 0 && !debug) {
+      bluetoothConnectionLost();
     } else {
-      Serial.println(command);
+      // Send by bluetooth
+      bluetooth.flush();
+      if (!debug) {
+        bluetooth.print(command);
+      } else {
+        Serial.println(command);
+      }
+
+
+      // Store current data
+      jx1_old = jx1;
+      jy1_old = jy1;
+      jx2_old = jx2;
+      jy2_old = jy2;
+      button1_old = button1;
+      button2_old = button2;
+
     }
   }
 
